@@ -38,14 +38,20 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
     
     // Try to extract metadata from the file
     try {
-      const metadataChunk = await selectedFile.slice(0, 1024).text();
-      const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
+      const firstChunkText = await selectedFile.slice(0, 2048).text(); // Read a larger chunk to ensure we get metadata
+      const separatorIndex = firstChunkText.indexOf('[0,0,0,0]');
       
       if (separatorIndex !== -1) {
-        const metadataJson = metadataChunk.substring(0, separatorIndex);
-        const parsedMetadata = JSON.parse(metadataJson);
-        setMetadata(parsedMetadata);
-        setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
+        const metadataJson = firstChunkText.substring(0, separatorIndex);
+        try {
+          const parsedMetadata = JSON.parse(metadataJson);
+          setMetadata(parsedMetadata);
+          setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
+        } catch (e) {
+          console.error("Error parsing metadata JSON:", e);
+        }
+      } else {
+        console.log("Separator not found in file");
       }
     } catch (error) {
       console.error("Error extracting metadata:", error);
@@ -86,18 +92,34 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
       
       // Read the first part of the file to extract metadata if not already done
       if (!metadata) {
-        const metadataChunk = await file.slice(0, 1024).text();
-        const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
-        
-        if (separatorIndex === -1) {
-          throw new Error('Invalid encrypted file format');
+        try {
+          // Read a larger chunk to ensure we get complete metadata
+          const metadataChunk = await file.slice(0, 2048).text();
+          const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
+          
+          if (separatorIndex === -1) {
+            throw new Error('Invalid encrypted file format or separator not found');
+          }
+          
+          // Parse metadata
+          const metadataJson = metadataChunk.substring(0, separatorIndex);
+          try {
+            const parsedMetadata = JSON.parse(metadataJson);
+            setMetadata(parsedMetadata);
+            setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
+          } catch (e) {
+            throw new Error('Invalid metadata format in encrypted file');
+          }
+        } catch (error) {
+          console.error("Metadata extraction error:", error);
+          toast({
+            title: "Invalid encrypted file",
+            description: "The file doesn't appear to be a valid QuantumX encrypted file",
+            variant: "destructive"
+          });
+          setIsProcessing(false);
+          return;
         }
-        
-        // Parse metadata
-        const metadataJson = metadataChunk.substring(0, separatorIndex);
-        const parsedMetadata = JSON.parse(metadataJson);
-        setMetadata(parsedMetadata);
-        setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
       }
       
       // Generate decryption key
@@ -119,18 +141,25 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
       
       // Extract the encrypted portion (skip metadata and separator)
       let dataStartIndex = 0;
-      const fileText = await file.slice(0, 1024).text();
+      const fileText = await file.slice(0, 2048).text();  // Read a larger chunk
       const separatorIndex = fileText.indexOf('[0,0,0,0]');
       
       if (separatorIndex !== -1) {
-        dataStartIndex = separatorIndex + 7; // Length of "[0,0,0,0]"
+        dataStartIndex = separatorIndex + 8;  // Length of "[0,0,0,0]" plus possible extra bytes
+      } else {
+        throw new Error('Invalid file format: Missing separator');
       }
       
       const encryptedPortion = file.slice(dataStartIndex);
       
+      // Create a new file from the encrypted portion to handle it properly
+      const encryptedFile = new File([encryptedPortion], 'encrypted-portion', { 
+        type: 'application/octet-stream' 
+      });
+      
       // Decrypt the file
       const decrypted = await decryptFile(
-        encryptedPortion as File,
+        encryptedFile,
         key,
         metadata?.fileType || '',
         handleProgressUpdate

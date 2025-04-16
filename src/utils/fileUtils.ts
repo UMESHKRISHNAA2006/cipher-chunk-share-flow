@@ -120,35 +120,39 @@ export function createWhatsAppShareLink(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
-// Share file via WhatsApp by creating a shareable download link
+// Share file via WhatsApp by creating a download link
 export async function shareFileViaWhatsApp(blob: Blob, fileName: string, message: string): Promise<void> {
   try {
-    // Check if Web Share API is supported
-    if (navigator.share) {
+    // Check if Web Share API is supported and can share files
+    if (navigator.share && navigator.canShare && blob.size <= 100 * 1024 * 1024) {
       const file = new File([blob], fileName, { type: blob.type });
-      await navigator.share({
+      const shareData = {
         title: 'QuantumX Encrypted File',
         text: message,
         files: [file]
-      });
-      return;
+      };
+      
+      // Check if the data is shareable
+      if (navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
     }
     
-    // Fallback for browsers without Web Share API
-    // Create a temporary download link
-    const shareMessage = `${message}\n\nPlease download the encrypted file from this link: `;
+    // Fallback when Web Share API isn't supported or can't share files
+    // First, save the file locally
+    saveFile(blob, fileName);
     
-    // Open WhatsApp with the message
+    // Then open WhatsApp with the message
+    const shareMessage = `${message}\n\nI've shared an encrypted file with you using QuantumX. Please download it from the link I'll send separately.`;
     window.open(createWhatsAppShareLink(shareMessage), '_blank');
     
-    // And immediately download the file for the user
-    saveFile(blob, fileName);
   } catch (error) {
     console.error("Error sharing via WhatsApp:", error);
-    // Fallback to just downloading the file
-    saveFile(blob, fileName);
     
-    // And open WhatsApp with just the message
-    window.open(createWhatsAppShareLink(message), '_blank');
+    // Ultimate fallback - just download and open WhatsApp
+    saveFile(blob, fileName);
+    const fallbackMessage = `${message}\n\nI've shared an encrypted file with you using QuantumX. Please check it.`;
+    window.open(createWhatsAppShareLink(fallbackMessage), '_blank');
   }
 }

@@ -57,15 +57,15 @@
 }
 
 .splash-logo {
-  width: 120px;
-  height: 120px;
+  width: 180px;
+  height: 180px;
   margin-bottom: 20px;
   animation: pulse 2s infinite;
 }
 
 .splash-title {
   color: white;
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: bold;
   opacity: 0;
   transform: translateY(20px);
