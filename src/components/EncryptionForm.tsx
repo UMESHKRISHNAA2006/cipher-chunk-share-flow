@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { generateKey, hashPassword } from '@/utils/cryptoUtils';
-import { encryptFile, saveFile, createWhatsAppShareLink } from '@/utils/fileUtils';
+import { encryptFile, saveFile, shareFileViaWhatsApp } from '@/utils/fileUtils';
 import { useToast } from '@/components/ui/use-toast';
 
 interface EncryptionFormProps {
@@ -136,15 +136,23 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
     if (!encryptedFile || !file) return;
     
     // Create a WhatsApp share message
-    const message = `I've shared an encrypted file with you: ${file.name}. Please use our secure decryption tool to access it.`;
+    const message = `I've shared an encrypted file with you using QuantumX: ${file.name}. Please use QuantumX to decrypt it.`;
     
-    // Open WhatsApp share link
-    window.open(createWhatsAppShareLink(message), '_blank');
-    
-    toast({
-      title: "Share initiated",
-      description: "Share the encrypted file separately after sending this message",
-    });
+    try {
+      await shareFileViaWhatsApp(encryptedFile, `${file.name}.encrypted`, message);
+      
+      toast({
+        title: "Share initiated",
+        description: "The encrypted file is being shared via WhatsApp",
+      });
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast({
+        title: "Sharing failed",
+        description: "Could not share the file. You can download it instead.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -211,7 +219,7 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
             <Button 
               onClick={handleEncrypt} 
               disabled={!file || !password || password !== confirmPassword || isProcessing}
-              className="flex-1"
+              className="flex-1 bg-black hover:bg-black/80"
             >
               <Lock className="mr-2 h-4 w-4" />
               {isProcessing ? 'Encrypting...' : 'Encrypt File'}

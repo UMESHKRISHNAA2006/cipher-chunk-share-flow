@@ -119,3 +119,36 @@ export function saveFile(blob: Blob, fileName: string) {
 export function createWhatsAppShareLink(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
+
+// Share file via WhatsApp by creating a shareable download link
+export async function shareFileViaWhatsApp(blob: Blob, fileName: string, message: string): Promise<void> {
+  try {
+    // Check if Web Share API is supported
+    if (navigator.share) {
+      const file = new File([blob], fileName, { type: blob.type });
+      await navigator.share({
+        title: 'QuantumX Encrypted File',
+        text: message,
+        files: [file]
+      });
+      return;
+    }
+    
+    // Fallback for browsers without Web Share API
+    // Create a temporary download link
+    const shareMessage = `${message}\n\nPlease download the encrypted file from this link: `;
+    
+    // Open WhatsApp with the message
+    window.open(createWhatsAppShareLink(shareMessage), '_blank');
+    
+    // And immediately download the file for the user
+    saveFile(blob, fileName);
+  } catch (error) {
+    console.error("Error sharing via WhatsApp:", error);
+    // Fallback to just downloading the file
+    saveFile(blob, fileName);
+    
+    // And open WhatsApp with just the message
+    window.open(createWhatsAppShareLink(message), '_blank');
+  }
+}

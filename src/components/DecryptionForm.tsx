@@ -28,12 +28,29 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
   const [originalFileName, setOriginalFileName] = useState<string>('');
   const [totalChunks, setTotalChunks] = useState(0);
   const [processedChunks, setProcessedChunks] = useState(0);
+  const [metadata, setMetadata] = useState<any>(null);
 
-  const handleFileSelected = (selectedFile: File) => {
+  const handleFileSelected = async (selectedFile: File) => {
     setFile(selectedFile);
     // Estimate total chunks
     const chunkSize = 4 * 1024 * 1024; // 4MB
     setTotalChunks(Math.ceil(selectedFile.size / chunkSize));
+    
+    // Try to extract metadata from the file
+    try {
+      const metadataChunk = await selectedFile.slice(0, 1024).text();
+      const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
+      
+      if (separatorIndex !== -1) {
+        const metadataJson = metadataChunk.substring(0, separatorIndex);
+        const parsedMetadata = JSON.parse(metadataJson);
+        setMetadata(parsedMetadata);
+        setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
+      }
+    } catch (error) {
+      console.error("Error extracting metadata:", error);
+      // Continue without metadata
+    }
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,43 +84,55 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
     try {
       setIsProcessing(true);
       
-      // Read the first part of the file to extract metadata
-      const metadataChunk = await file.slice(0, 1024).text();
-      const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
-      
-      if (separatorIndex === -1) {
-        throw new Error('Invalid encrypted file format');
+      // Read the first part of the file to extract metadata if not already done
+      if (!metadata) {
+        const metadataChunk = await file.slice(0, 1024).text();
+        const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
+        
+        if (separatorIndex === -1) {
+          throw new Error('Invalid encrypted file format');
+        }
+        
+        // Parse metadata
+        const metadataJson = metadataChunk.substring(0, separatorIndex);
+        const parsedMetadata = JSON.parse(metadataJson);
+        setMetadata(parsedMetadata);
+        setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
       }
-      
-      // Parse metadata
-      const metadataJson = metadataChunk.substring(0, separatorIndex);
-      const metadata = JSON.parse(metadataJson);
-      setOriginalFileName(metadata.fileName || 'decrypted-file');
-      
-      // Verify password hash
-      const inputPasswordHash = await hashPassword(password);
-      if (metadata.passwordHash && metadata.passwordHash !== inputPasswordHash) {
-        toast({
-          title: "Incorrect password",
-          description: "The password you entered is incorrect",
-          variant: "destructive"
-        });
-        setIsProcessing(false);
-        return;
-      }
-      
-      // Extract the encrypted portion (skip metadata and separator)
-      const dataStartIndex = metadataJson.length + 8; // 8 for separator bytes
-      const encryptedPortion = file.slice(dataStartIndex);
       
       // Generate decryption key
       const key = await generateKey(password);
+      
+      // Verify password hash if available in metadata
+      if (metadata && metadata.passwordHash) {
+        const inputPasswordHash = await hashPassword(password);
+        if (metadata.passwordHash !== inputPasswordHash) {
+          toast({
+            title: "Incorrect password",
+            description: "The password you entered is incorrect",
+            variant: "destructive"
+          });
+          setIsProcessing(false);
+          return;
+        }
+      }
+      
+      // Extract the encrypted portion (skip metadata and separator)
+      let dataStartIndex = 0;
+      const fileText = await file.slice(0, 1024).text();
+      const separatorIndex = fileText.indexOf('[0,0,0,0]');
+      
+      if (separatorIndex !== -1) {
+        dataStartIndex = separatorIndex + 7; // Length of "[0,0,0,0]"
+      }
+      
+      const encryptedPortion = file.slice(dataStartIndex);
       
       // Decrypt the file
       const decrypted = await decryptFile(
         encryptedPortion as File,
         key,
-        metadata.fileType || '',
+        metadata?.fileType || '',
         handleProgressUpdate
       );
       
@@ -143,7 +172,7 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold">Decrypt File</h2>
             <p className="text-muted-foreground">
-              Decrypt files that were encrypted with our tool using the correct password.
+              Decrypt files that were encrypted with QuantumX using the correct password.
             </p>
           </div>
           
@@ -164,6 +193,14 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
               placeholder="Enter decryption password"
             />
           </div>
+          
+          {metadata && (
+            <div className="text-sm bg-secondary p-3 rounded-md">
+              <p><strong>File Info:</strong> {metadata.fileName}</p>
+              <p><strong>Size:</strong> {(metadata.fileSize / 1024).toFixed(1)} KB</p>
+              <p><strong>Encrypted:</strong> {new Date(metadata.encryptionDate).toLocaleDateString()}</p>
+            </div>
+          )}
           
           {totalChunks > 0 && (
             <FileChunkVisualizer
@@ -192,7 +229,7 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
             {decryptedFile && (
               <Button 
                 onClick={handleDownload} 
-                className="flex-1"
+                className="flex-1 bg-black hover:bg-black/80"
               >
                 <Download className="mr-2 h-4 w-4" />
                 Download Decrypted
@@ -202,7 +239,7 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
           
           {decryptedFile && (
             <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-              <FileDigit className="h-5 w-5 text-primary" />
+              <FileDigit className="h-5 w-5 text-black dark:text-white" />
               <span className="text-sm">
                 Original file: <strong>{originalFileName}</strong> is ready for download
               </span>

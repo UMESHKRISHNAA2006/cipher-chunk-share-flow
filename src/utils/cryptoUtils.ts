@@ -27,7 +27,7 @@ export async function generateKey(password: string): Promise<CryptoKey> {
   );
   
   // Use PBKDF2 to derive a key
-  const salt = encoder.encode('cipher-chunk-share-flow-salt');
+  const salt = encoder.encode('quantum-x-crypto-salt');
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -73,17 +73,22 @@ export async function decryptChunk(
   encryptedChunk: ArrayBuffer,
   key: CryptoKey
 ): Promise<ArrayBuffer> {
-  // Extract IV from the beginning of the encrypted data
-  const iv = new Uint8Array(encryptedChunk.slice(0, 12));
-  const encryptedData = new Uint8Array(encryptedChunk.slice(12));
-  
-  // Decrypt the chunk
-  return crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv
-    },
-    key,
-    encryptedData
-  );
+  try {
+    // Extract IV from the beginning of the encrypted data
+    const iv = new Uint8Array(encryptedChunk.slice(0, 12));
+    const encryptedData = new Uint8Array(encryptedChunk.slice(12));
+    
+    // Decrypt the chunk
+    return crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv
+      },
+      key,
+      encryptedData
+    );
+  } catch (error) {
+    console.error("Decryption error:", error);
+    throw new Error("Failed to decrypt chunk. Incorrect password or corrupted data.");
+  }
 }

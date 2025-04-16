@@ -24,7 +24,7 @@ const Index = () => {
         >
           <div className="flex justify-center mb-3">
             <motion.div 
-              className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center"
+              className="h-20 w-20 rounded-lg bg-black flex items-center justify-center"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ 
@@ -34,7 +34,11 @@ const Index = () => {
                 delay: 0.2
               }}
             >
-              <SplitSquareVertical className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              <img 
+                src="/lovable-uploads/b45c9e7d-b017-4e9f-9f67-8b2e60edc127.png" 
+                alt="QuantumX Logo" 
+                className="h-16 w-16"
+              />
             </motion.div>
           </div>
           
@@ -44,7 +48,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            Secure File Encryption with Divide & Conquer
+            QuantumX
           </motion.h1>
           
           <motion.p 
@@ -53,8 +57,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Encrypt and decrypt files using AES-256 encryption with an efficient divide and conquer algorithm.
-            Share securely via WhatsApp or any other platform.
+            Secure File Encryption with Quantum Technology
           </motion.p>
         </motion.div>
       </header>
@@ -110,8 +113,8 @@ const Index = () => {
           
           <div className="grid md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2">
-                <SplitSquareVertical className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 rounded-full bg-black dark:bg-gray-900 flex items-center justify-center mb-2">
+                <SplitSquareVertical className="h-5 w-5 text-white dark:text-gray-200" />
               </div>
               <h3 className="font-medium">Divide</h3>
               <p className="text-sm text-muted-foreground">
@@ -120,8 +123,8 @@ const Index = () => {
             </div>
             
             <div className="space-y-2">
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2">
-                <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 rounded-full bg-black dark:bg-gray-900 flex items-center justify-center mb-2">
+                <Lock className="h-5 w-5 text-white dark:text-gray-200" />
               </div>
               <h3 className="font-medium">Encrypt/Decrypt</h3>
               <p className="text-sm text-muted-foreground">
@@ -130,8 +133,8 @@ const Index = () => {
             </div>
             
             <div className="space-y-2">
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2">
-                <Unlock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 rounded-full bg-black dark:bg-gray-900 flex items-center justify-center mb-2">
+                <Unlock className="h-5 w-5 text-white dark:text-gray-200" />
               </div>
               <h3 className="font-medium">Combine</h3>
               <p className="text-sm text-muted-foreground">
