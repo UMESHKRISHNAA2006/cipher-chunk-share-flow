@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Unlock, Download, FileDigit } from 'lucide-react';
 import { FileUpload } from './FileUpload';
@@ -162,10 +163,13 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
       }
       
       // Extract the encrypted portion (skip metadata and separator)
-      const metadataPlusDelimiter = textDecoder.encode(metadataText + METADATA_SEPARATOR).length;
-      const encryptedPortion = file.slice(metadataPlusDelimiter);
+      // Fix: Use TextEncoder to get the byte length, not to encode the text that's already encoded
+      const textEncoder = new TextEncoder();
+      const metadataBytes = textEncoder.encode(metadataText + METADATA_SEPARATOR);
+      const metadataPlusDelimiter = metadataBytes.length;
       
       // Create a new file from the encrypted portion to handle it properly
+      const encryptedPortion = file.slice(metadataPlusDelimiter);
       const encryptedFile = new File([encryptedPortion], 'encrypted-portion', { 
         type: 'application/octet-stream' 
       });
