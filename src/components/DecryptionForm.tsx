@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Unlock, Download, FileDigit } from 'lucide-react';
 import { FileUpload } from './FileUpload';
@@ -11,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { generateKey, hashPassword } from '@/utils/cryptoUtils';
-import { decryptFile, saveFile } from '@/utils/fileUtils';
+import { decryptFile, saveFile, METADATA_SEPARATOR } from '@/utils/fileUtils';
 import { useToast } from '@/components/ui/use-toast';
 
 interface DecryptionFormProps {
@@ -29,33 +28,59 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
   const [totalChunks, setTotalChunks] = useState(0);
   const [processedChunks, setProcessedChunks] = useState(0);
   const [metadata, setMetadata] = useState<any>(null);
+  const [fileContent, setFileContent] = useState<ArrayBuffer | null>(null);
 
   const handleFileSelected = async (selectedFile: File) => {
     setFile(selectedFile);
+    
     // Estimate total chunks
     const chunkSize = 4 * 1024 * 1024; // 4MB
     setTotalChunks(Math.ceil(selectedFile.size / chunkSize));
     
-    // Try to extract metadata from the file
+    // Read file content
     try {
-      const firstChunkText = await selectedFile.slice(0, 2048).text(); // Read a larger chunk to ensure we get metadata
-      const separatorIndex = firstChunkText.indexOf('[0,0,0,0]');
+      const fileBuffer = await selectedFile.arrayBuffer();
+      setFileContent(fileBuffer);
       
-      if (separatorIndex !== -1) {
-        const metadataJson = firstChunkText.substring(0, separatorIndex);
-        try {
-          const parsedMetadata = JSON.parse(metadataJson);
-          setMetadata(parsedMetadata);
-          setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
-        } catch (e) {
-          console.error("Error parsing metadata JSON:", e);
+      // Convert to text to find metadata
+      const fileReader = new FileReader();
+      
+      fileReader.onload = (e) => {
+        if (e.target?.result) {
+          const content = e.target.result.toString();
+          
+          // Look for our unique separator
+          const separatorIndex = content.indexOf(METADATA_SEPARATOR);
+          
+          if (separatorIndex !== -1) {
+            try {
+              const metadataText = content.substring(0, separatorIndex);
+              const parsedMetadata = JSON.parse(metadataText);
+              
+              console.log("Found metadata:", parsedMetadata);
+              
+              if (parsedMetadata.appIdentifier === "QuantumX-Encryption-v1" || 
+                  parsedMetadata.fileName) {
+                setMetadata(parsedMetadata);
+                setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
+              } else {
+                console.error("Invalid file format: Missing QuantumX identifier");
+              }
+            } catch (e) {
+              console.error("Error parsing metadata JSON:", e);
+            }
+          } else {
+            console.log("Separator not found in file preview");
+          }
         }
-      } else {
-        console.log("Separator not found in file");
-      }
+      };
+      
+      // Read just the first part of the file to find metadata
+      const firstChunk = selectedFile.slice(0, 4096);
+      fileReader.readAsText(firstChunk);
+      
     } catch (error) {
-      console.error("Error extracting metadata:", error);
-      // Continue without metadata
+      console.error("Error reading file:", error);
     }
   };
 
@@ -69,7 +94,7 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
   };
 
   const handleDecrypt = async () => {
-    if (!file) {
+    if (!file || !fileContent) {
       toast({
         title: "No file selected",
         description: "Please select an encrypted file",
@@ -90,45 +115,42 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
     try {
       setIsProcessing(true);
       
-      // Read the first part of the file to extract metadata if not already done
-      if (!metadata) {
-        try {
-          // Read a larger chunk to ensure we get complete metadata
-          const metadataChunk = await file.slice(0, 2048).text();
-          const separatorIndex = metadataChunk.indexOf('[0,0,0,0]');
-          
-          if (separatorIndex === -1) {
-            throw new Error('Invalid encrypted file format or separator not found');
-          }
-          
-          // Parse metadata
-          const metadataJson = metadataChunk.substring(0, separatorIndex);
-          try {
-            const parsedMetadata = JSON.parse(metadataJson);
-            setMetadata(parsedMetadata);
-            setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
-          } catch (e) {
-            throw new Error('Invalid metadata format in encrypted file');
-          }
-        } catch (error) {
-          console.error("Metadata extraction error:", error);
-          toast({
-            title: "Invalid encrypted file",
-            description: "The file doesn't appear to be a valid QuantumX encrypted file",
-            variant: "destructive"
-          });
-          setIsProcessing(false);
-          return;
-        }
+      // Convert file content to text to look for metadata and separator
+      const textDecoder = new TextDecoder('utf-8');
+      const fileText = textDecoder.decode(fileContent.slice(0, 4096)); // Read the start of the file
+      
+      // Look for the separator
+      const separatorIndex = fileText.indexOf(METADATA_SEPARATOR);
+      
+      if (separatorIndex === -1) {
+        throw new Error('Invalid encrypted file format: Missing QuantumX separator');
       }
+      
+      // Extract and parse metadata
+      const metadataText = fileText.substring(0, separatorIndex);
+      let parsedMetadata;
+      
+      try {
+        parsedMetadata = JSON.parse(metadataText);
+      } catch (e) {
+        throw new Error('Invalid metadata format in encrypted file');
+      }
+      
+      // Check if this is a QuantumX encrypted file
+      if (!parsedMetadata.fileName && !parsedMetadata.appIdentifier) {
+        throw new Error('This file was not encrypted with QuantumX');
+      }
+      
+      setMetadata(parsedMetadata);
+      setOriginalFileName(parsedMetadata.fileName || 'decrypted-file');
       
       // Generate decryption key
       const key = await generateKey(password);
       
       // Verify password hash if available in metadata
-      if (metadata && metadata.passwordHash) {
+      if (parsedMetadata && parsedMetadata.passwordHash) {
         const inputPasswordHash = await hashPassword(password);
-        if (metadata.passwordHash !== inputPasswordHash) {
+        if (parsedMetadata.passwordHash !== inputPasswordHash) {
           toast({
             title: "Incorrect password",
             description: "The password you entered is incorrect",
@@ -140,17 +162,8 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
       }
       
       // Extract the encrypted portion (skip metadata and separator)
-      let dataStartIndex = 0;
-      const fileText = await file.slice(0, 2048).text();  // Read a larger chunk
-      const separatorIndex = fileText.indexOf('[0,0,0,0]');
-      
-      if (separatorIndex !== -1) {
-        dataStartIndex = separatorIndex + 8;  // Length of "[0,0,0,0]" plus possible extra bytes
-      } else {
-        throw new Error('Invalid file format: Missing separator');
-      }
-      
-      const encryptedPortion = file.slice(dataStartIndex);
+      const metadataPlusDelimiter = textDecoder.encode(metadataText + METADATA_SEPARATOR).length;
+      const encryptedPortion = file.slice(metadataPlusDelimiter);
       
       // Create a new file from the encrypted portion to handle it properly
       const encryptedFile = new File([encryptedPortion], 'encrypted-portion', { 
@@ -161,7 +174,7 @@ export function DecryptionForm({ className }: DecryptionFormProps) {
       const decrypted = await decryptFile(
         encryptedFile,
         key,
-        metadata?.fileType || '',
+        parsedMetadata?.fileType || '',
         handleProgressUpdate
       );
       

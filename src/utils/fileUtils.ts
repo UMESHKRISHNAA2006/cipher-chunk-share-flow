@@ -8,6 +8,9 @@ import { encryptChunk, decryptChunk } from './cryptoUtils';
 // Define optimal chunk size (4MB)
 const CHUNK_SIZE = 4 * 1024 * 1024;
 
+// Define metadata separator (using a more unique and reliable separator)
+export const METADATA_SEPARATOR = "---QUANTUMX-METADATA-SEPARATOR---";
+
 // Split file into chunks (Divide step)
 export function splitFileIntoChunks(file: File): Blob[] {
   const chunks: Blob[] = [];

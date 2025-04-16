@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { generateKey, hashPassword } from '@/utils/cryptoUtils';
-import { encryptFile, saveFile, shareFileViaWhatsApp } from '@/utils/fileUtils';
+import { encryptFile, saveFile, shareFileViaWhatsApp, METADATA_SEPARATOR } from '@/utils/fileUtils';
 import { useToast } from '@/components/ui/use-toast';
 
 interface EncryptionFormProps {
@@ -95,16 +95,21 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
         fileType: file.type,
         fileSize: file.size,
         passwordHash,
-        encryptionDate: new Date().toISOString()
+        encryptionDate: new Date().toISOString(),
+        appIdentifier: "QuantumX-Encryption-v1"
       };
       
       // Store metadata with the encrypted file
-      const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+      const metadataString = JSON.stringify(metadata);
+      const metadataBlob = new Blob([metadataString], { type: 'application/json' });
       
-      // Combine metadata and encrypted file
+      // Add a clear separator that's easy to find
+      const separatorBlob = new Blob([METADATA_SEPARATOR], { type: 'text/plain' });
+      
+      // Combine metadata, separator and encrypted file
       const finalBlob = new Blob([
         metadataBlob, 
-        new Uint8Array([0, 0, 0, 0]), // Separator
+        separatorBlob,
         encrypted
       ], { type: 'application/encrypted' });
       
