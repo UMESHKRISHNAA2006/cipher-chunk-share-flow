@@ -1,18 +1,16 @@
 
 import React, { useState } from 'react';
-import { Lock, Share2, Download } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { FileUpload } from './FileUpload';
 import { ProgressBar } from './ProgressBar';
 import { FileChunkVisualizer } from './FileChunkVisualizer';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import { generateKey, hashPassword } from '@/utils/cryptoUtils';
 import { encryptFile, saveFile, shareFileViaWhatsApp, METADATA_SEPARATOR } from '@/utils/fileUtils';
 import { useToast } from '@/components/ui/use-toast';
+import { PasswordFields } from './encryption/PasswordFields';
+import { EncryptionActions } from './encryption/EncryptionActions';
 
 interface EncryptionFormProps {
   className?: string;
@@ -31,7 +29,6 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
 
   const handleFileSelected = (selectedFile: File) => {
     setFile(selectedFile);
-    // Estimate total chunks
     const chunkSize = 4 * 1024 * 1024; // 4MB
     setTotalChunks(Math.ceil(selectedFile.size / chunkSize));
   };
@@ -50,28 +47,10 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
   };
 
   const handleEncrypt = async () => {
-    if (!file) {
+    if (!file || !password || password !== confirmPassword) {
       toast({
-        title: "No file selected",
-        description: "Please select a file to encrypt",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!password) {
-      toast({
-        title: "Password required",
-        description: "Please enter a password",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords do not match",
-        description: "Please make sure passwords match",
+        title: !file ? "No file selected" : "Password error",
+        description: !file ? "Please select a file to encrypt" : "Please check your password",
         variant: "destructive"
       });
       return;
@@ -79,17 +58,10 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
 
     try {
       setIsProcessing(true);
-      
-      // Hash the password for verification later
       const passwordHash = await hashPassword(password);
-      
-      // Generate encryption key
       const key = await generateKey(password);
-      
-      // Encrypt the file
       const encrypted = await encryptFile(file, key, handleProgressUpdate);
       
-      // Create metadata to store with the encrypted file
       const metadata = {
         fileName: file.name,
         fileType: file.type,
@@ -99,14 +71,10 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
         appIdentifier: "QuantumX-Encryption-v1"
       };
       
-      // Store metadata with the encrypted file
       const metadataString = JSON.stringify(metadata);
       const metadataBlob = new Blob([metadataString], { type: 'application/json' });
-      
-      // Add a clear separator that's easy to find
       const separatorBlob = new Blob([METADATA_SEPARATOR], { type: 'text/plain' });
       
-      // Combine metadata, separator and encrypted file
       const finalBlob = new Blob([
         metadataBlob, 
         separatorBlob,
@@ -139,13 +107,10 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
 
   const handleShare = async () => {
     if (!encryptedFile || !file) return;
-    
-    // Create a WhatsApp share message
     const message = `I've shared an encrypted file with you using QuantumX: ${file.name}. Please use QuantumX to decrypt it.`;
     
     try {
       await shareFileViaWhatsApp(encryptedFile, `${file.name}.encrypted`, message);
-      
       toast({
         title: "Share initiated",
         description: "The encrypted file is being shared via WhatsApp",
@@ -181,31 +146,13 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
             className="mt-2"
           />
           
-          <div className="grid gap-4">
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                disabled={isProcessing}
-                placeholder="Enter a strong password"
-              />
-            </div>
-            
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={handleConfirmPasswordChange}
-                disabled={isProcessing}
-                placeholder="Confirm your password"
-              />
-            </div>
-          </div>
+          <PasswordFields
+            password={password}
+            confirmPassword={confirmPassword}
+            onPasswordChange={handlePasswordChange}
+            onConfirmPasswordChange={handleConfirmPasswordChange}
+            isProcessing={isProcessing}
+          />
           
           {totalChunks > 0 && (
             <FileChunkVisualizer
@@ -220,38 +167,14 @@ export function EncryptionForm({ className }: EncryptionFormProps) {
             <ProgressBar progress={progress} />
           )}
           
-          <div className="flex flex-col md:flex-row gap-3">
-            <Button 
-              onClick={handleEncrypt} 
-              disabled={!file || !password || password !== confirmPassword || isProcessing}
-              className="flex-1 bg-black hover:bg-black/80"
-            >
-              <Lock className="mr-2 h-4 w-4" />
-              {isProcessing ? 'Encrypting...' : 'Encrypt File'}
-            </Button>
-            
-            {encryptedFile && (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={handleDownload} 
-                  className="flex-1"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Encrypted
-                </Button>
-                
-                <Button 
-                  variant="secondary" 
-                  onClick={handleShare} 
-                  className="flex-1"
-                >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share via WhatsApp
-                </Button>
-              </>
-            )}
-          </div>
+          <EncryptionActions
+            onEncrypt={handleEncrypt}
+            onDownload={handleDownload}
+            onShare={handleShare}
+            isProcessing={isProcessing}
+            canEncrypt={!!file && !!password && password === confirmPassword}
+            hasEncryptedFile={!!encryptedFile}
+          />
         </div>
       </Card>
     </motion.div>
