@@ -46,7 +46,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #111111;
+  background-color: #0A0A0A;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -56,11 +56,11 @@
 }
 
 .splash-logo {
-  width: 180px;
-  height: 180px;
+  width: 300px;
+  height: 300px;
   margin-bottom: 20px;
   animation: pulse 2s infinite;
-  filter: drop-shadow(0 0 10px rgba(78, 204, 255, 0.3));
+  filter: drop-shadow(0 0 15px rgba(78, 204, 255, 0.5));
 }
 
 .splash-title {
