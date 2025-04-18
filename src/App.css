@@ -1,4 +1,3 @@
-
 #root {
   width: 100%;
   margin: 0 auto;
@@ -47,7 +46,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #000000;
+  background-color: #111111;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -61,16 +60,18 @@
   height: 180px;
   margin-bottom: 20px;
   animation: pulse 2s infinite;
+  filter: drop-shadow(0 0 10px rgba(78, 204, 255, 0.3));
 }
 
 .splash-title {
-  color: white;
+  color: #e0e0e0;
   font-size: 3rem;
   font-weight: bold;
   opacity: 0;
   transform: translateY(20px);
   animation: fadeInUp 1s ease-out forwards;
   animation-delay: 0.5s;
+  text-shadow: 0 0 10px rgba(78, 204, 255, 0.3);
 }
 
 @keyframes pulse {

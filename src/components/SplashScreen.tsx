@@ -28,12 +28,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   return (
     <div className={`splash-screen ${fadeOut ? 'fade-out' : ''}`}>
       <img 
-        src="/lovable-uploads/b45c9e7d-b017-4e9f-9f67-8b2e60edc127.png" 
+        src="/lovable-uploads/8bb3dfca-a832-49ca-892b-d332c429129c.png" 
         alt="QuantumX Logo" 
         className="splash-logo"
-        style={{ width: '280px', height: '280px' }} // Increased size for more prominence
+        style={{ width: '400px', height: '400px' }} // Made significantly larger
       />
-      <h1 className="splash-title">QuantumX</h1>
+      <h1 className="splash-title text-gray-300">QuantumX</h1>
     </div>
   );
 }
